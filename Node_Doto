@@ -1,0 +1,165 @@
+// 引入 Node.js 内置模块
+const fs = require('fs');       // 文件操作模块
+const path = require('path');   // 路径处理模块
+const readline = require('readline'); // 命令行交互模块
+
+// 定义任务数据存储的文件路径（存为 JSON 格式）
+const tasksPath = path.join(__dirname, 'tasks.json');
+
+// 初始化任务文件（如果文件不存在则创建空数组）
+function initTasksFile() {
+  if (!fs.existsSync(tasksPath)) {
+    fs.writeFileSync(tasksPath, '[]', 'utf8');
+  }
+}
+
+// 读取所有任务
+function getTasks() {
+  initTasksFile(); // 确保文件存在
+  const data = fs.readFileSync(tasksPath, 'utf8');
+  return JSON.parse(data); // 解析 JSON 为数组
+}
+
+// 保存任务到文件
+function saveTasks(tasks) {
+  fs.writeFileSync(tasksPath, JSON.stringify(tasks, null, 2), 'utf8');
+}
+
+// 1. 添加任务
+function addTask(content) {
+  const tasks = getTasks();
+  // 生成唯一 ID（用时间戳简化实现）
+  const newTask = {
+    id: Date.now().toString(), // 时间戳作为 ID
+    content: content,          // 任务内容
+    completed: false,          // 状态：未完成
+    createdAt: new Date().toLocaleString() // 创建时间
+  };
+  tasks.push(newTask);
+  saveTasks(tasks);
+  console.log(`✅ 任务添加成功！ID: ${newTask.id}`);
+}
+
+// 2. 查看所有任务
+function listTasks() {
+  const tasks = getTasks();
+  if (tasks.length === 0) {
+    console.log('📋 暂无任务，快去添加吧！');
+    return;
+  }
+  console.log('\n📝 所有任务：');
+  tasks.forEach(task => {
+    // 用 emoji 区分状态
+    const status = task.completed ? '✅' : '❌';
+    console.log(`
+ID: ${task.id}
+内容：${task.content}
+状态：${status}（${task.completed ? '已完成' : '未完成'}）
+创建时间：${task.createdAt}
+    `);
+  });
+}
+
+// 3. 标记任务为已完成
+function completeTask(taskId) {
+  const tasks = getTasks();
+  const task = tasks.find(t => t.id === taskId);
+  if (!task) {
+    console.log('❌ 未找到该任务，请检查 ID 是否正确！');
+    return;
+  }
+  task.completed = true;
+  saveTasks(tasks);
+  console.log(`✅ 任务 ID: ${taskId} 已标记为完成！`);
+}
+
+// 4. 删除任务
+function deleteTask(taskId) {
+  let tasks = getTasks();
+  const initialLength = tasks.length;
+  tasks = tasks.filter(t => t.id !== taskId); // 过滤掉要删除的任务
+  if (tasks.length === initialLength) {
+    console.log('❌ 未找到该任务，请检查 ID 是否正确！');
+    return;
+  }
+  saveTasks(tasks);
+  console.log(`🗑️ 任务 ID: ${taskId} 已删除！`);
+}
+
+// 5. 清空所有任务
+function clearAllTasks() {
+  saveTasks([]);
+  console.log('🧹 所有任务已清空！');
+}
+
+// 命令行交互逻辑
+function start() {
+  console.log('\n===== 任务管理工具 =====');
+  console.log('请选择操作：');
+  console.log('1. 添加任务');
+  console.log('2. 查看所有任务');
+  console.log('3. 标记任务为完成');
+  console.log('4. 删除任务');
+  console.log('5. 清空所有任务');
+  console.log('6. 退出');
+
+  // 创建命令行交互接口
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout
+  });
+
+  // 获取用户输入的操作编号
+  rl.question('请输入操作编号（1-6）：', (choice) => {
+    switch (choice) {
+      case '1':
+        rl.question('请输入任务内容：', (content) => {
+          addTask(content);
+          rl.close();
+          start(); // 完成后重新显示菜单
+        });
+        break;
+      case '2':
+        listTasks();
+        rl.close();
+        start();
+        break;
+      case '3':
+        rl.question('请输入要标记完成的任务 ID：', (id) => {
+          completeTask(id);
+          rl.close();
+          start();
+        });
+        break;
+      case '4':
+        rl.question('请输入要删除的任务 ID：', (id) => {
+          deleteTask(id);
+          rl.close();
+          start();
+        });
+        break;
+      case '5':
+        rl.question('确定要清空所有任务吗？(y/n)：', (answer) => {
+          if (answer.toLowerCase() === 'y') {
+            clearAllTasks();
+          } else {
+            console.log('已取消清空操作');
+          }
+          rl.close();
+          start();
+        });
+        break;
+      case '6':
+        console.log('👋 再见！');
+        rl.close();
+        break;
+      default:
+        console.log('❌ 无效的操作，请输入 1-6 之间的数字！');
+        rl.close();
+        start();
+    }
+  });
+}
+
+// 启动程序
+start();
